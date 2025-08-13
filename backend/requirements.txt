@@ -20,4 +20,4 @@ lxml>=4.9.3
 selenium>=4.15.2
 webdriver-manager>=4.0.1
 setuptools>=68.0.0
-wheel>=0.41.0 
+wheel>=0.41.0
