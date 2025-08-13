@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from typing import List, Optional
 import os
+import logging
 from dotenv import load_dotenv
 
 from database import engine, get_db
@@ -13,16 +14,28 @@ from routers import games, scraping, analytics
 # from celery_app import celery  # Commented out for development without Redis
 from config import settings
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Load environment variables
 load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    Base.metadata.create_all(bind=engine)
-    yield
-    # Shutdown
-    pass
+    try:
+        # Startup
+        logger.info("Starting up Roblox Analytics API...")
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully")
+        yield
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+        raise
+    finally:
+        # Shutdown
+        logger.info("Shutting down Roblox Analytics API...")
+        pass
 
 app = FastAPI(
     title="Roblox Game Analytics API",
@@ -31,17 +44,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Parse CORS origins from environment variable
-def get_cors_origins():
-    cors_origins = os.environ.get("CORS_ORIGINS", "*")
-    if cors_origins == "*":
-        return ["*"]
-    return [origin.strip() for origin in cors_origins.split(",")]
-
-# CORS middleware
+# CORS middleware - allow all origins for now to fix the issue
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_cors_origins(),
+    allow_origins=["*"],  # Allow all origins temporarily
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,9 +64,18 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "database": "connected"}
+    try:
+        # Test database connection
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
 if __name__ == "__main__":
     # Get port from environment variable (for Render) or use default
     port = int(os.environ.get("PORT", 8000))
+    logger.info(f"Starting server on port {port}")
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False) 

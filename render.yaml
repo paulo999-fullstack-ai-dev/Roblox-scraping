@@ -10,7 +10,7 @@ services:
       - key: DEBUG
         value: false
       - key: CORS_ORIGINS
-        value: "https://roblox-scraping-6bl0zyg1u-angelo-paulo-quebrars-projects.vercel.app,https://roblox-scraping.vercel.app,http://localhost:3000,http://localhost:3001"
+        value: "https://roblox-scraping-qa6mza297-angelo-paulo-quebrars-projects.vercel.app,https://roblox-scraping-6bl0zyg1u-angelo-paulo-quebrars-projects.vercel.app,https://roblox-scraping.vercel.app,http://localhost:3000,http://localhost:3001"
       - key: REQUEST_DELAY_SECONDS
         value: 0.2
       - key: SECRET_KEY
