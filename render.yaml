@@ -5,16 +5,6 @@ services:
     buildCommand: pip install -r backend/requirements.txt
     startCommand: cd backend && python main.py
     envVars:
-      - key: DATABASE_URL
-        value: postgresql://postgres:Roblox500$@db.hkgastbktxpqqxbpokmy.supabase.co:5432/postgres
-      - key: DEBUG
-        value: false
-      - key: CORS_ORIGINS
-        value: "https://roblox-scraping-78d87ar6k-angelo-paulo-quebrars-projects.vercel.app,https://roblox-scraping-qa6mza297-angelo-paulo-quebrars-projects.vercel.app,https://roblox-scraping-6bl0zyg1u-angelo-paulo-quebrars-projects.vercel.app,https://roblox-scraping.vercel.app,http://localhost:3000,http://localhost:3001"
-      - key: REQUEST_DELAY_SECONDS
-        value: 0.2
-      - key: SECRET_KEY
-        value: your-production-secret-key-here
       - key: PORT
         value: "10000"
     autoDeploy: true
