@@ -77,5 +77,13 @@ async def health_check():
 if __name__ == "__main__":
     # Get port from environment variable (for Render) or use default
     port = int(os.environ.get("PORT", 8000))
-    logger.info(f"Starting server on port {port}")
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False) 
+    host = os.environ.get("HOST", "0.0.0.0")
+    
+    logger.info(f"Starting server on {host}:{port}")
+    logger.info(f"Environment PORT: {os.environ.get('PORT', 'Not set')}")
+    
+    try:
+        uvicorn.run("main:app", host=host, port=port, reload=False, log_level="info")
+    except Exception as e:
+        logger.error(f"Failed to start server: {e}")
+        raise 

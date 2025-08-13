@@ -3,7 +3,7 @@ services:
     name: roblox-analytics-backend
     env: python
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: cd backend && PORT=$PORT uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
         value: postgresql://postgres:Roblox500$@db.hkgastbktxpqqxbpokmy.supabase.co:5432/postgres
@@ -15,6 +15,8 @@ services:
         value: 0.2
       - key: SECRET_KEY
         value: your-production-secret-key-here
+      - key: PORT
+        value: "10000"
     autoDeploy: true
 
   - type: web
