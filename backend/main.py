@@ -31,10 +31,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Parse CORS origins from environment variable
+def get_cors_origins():
+    cors_origins = os.environ.get("CORS_ORIGINS", "*")
+    if cors_origins == "*":
+        return ["*"]
+    return [origin.strip() for origin in cors_origins.split(",")]
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
