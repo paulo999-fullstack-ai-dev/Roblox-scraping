@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: 'https://roblox-scraping.onrender.com/api',
   timeout: 600000, // Increased to 10 minutes for full scraping operations
 })
 
