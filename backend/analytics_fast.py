@@ -157,9 +157,7 @@ def get_fast_retention_data(db: Session, days: int = 7, min_visits: int = 1000) 
                 'active_players': active_players,
                 'd1_retention': round(d1_retention, 1),
                 'd7_retention': round(d7_retention, 1),
-                'd30_retention': round(d30_retention, 1),
-                'unique_visitors': int(visits * 0.3),
-                'avg_playtime_minutes': round(visits * 0.1, 1)
+                'd30_retention': round(d30_retention, 1)
             })
         
         return retention_data
@@ -168,7 +166,7 @@ def get_fast_retention_data(db: Session, days: int = 7, min_visits: int = 1000) 
         logger.error(f"Error getting fast retention data: {str(e)}")
         return []
 
-def get_fast_growth_data(db: Session, window_days: int = 7, min_growth_percent: float = 10.0) -> List[Dict]:
+def get_fast_growth_data(db: Session, window_days: int = 7) -> List[Dict]:
     """Get growth data with EXACT calculations based on real historical data comparison"""
     try:
         # Get games with their latest metrics
@@ -189,7 +187,7 @@ def get_fast_growth_data(db: Session, window_days: int = 7, min_growth_percent: 
             WHERE gm.visits IS NOT NULL
             ORDER BY gm.visits DESC
             LIMIT 20
-        """), {'window_days': window_days}).fetchall()
+        """)).fetchall()
         
         growth_data = []
         for row in result:
