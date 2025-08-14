@@ -197,7 +197,6 @@ export default function Analytics() {
     name: game.game_name,
     d1: game.d1_retention || 0,
     d7: game.d7_retention || 0,
-    d30: game.d30_retention || 0,
   })) || []
 
   const growthChartData = growthData?.slice(0, 10).map((game, index) => ({
@@ -336,9 +335,6 @@ export default function Analytics() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     D7 Retention
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    D30 Retention
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -373,9 +369,6 @@ export default function Analytics() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {game.d7_retention.toFixed(1)}%
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {game.d30_retention.toFixed(1)}%
                     </td>
                   </tr>
                 ))}

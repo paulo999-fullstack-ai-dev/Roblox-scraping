@@ -51,7 +51,6 @@ def calculate_retention(
         # Estimate retention based on visit patterns
         d1_retention = estimate_d1_retention(metrics)
         d7_retention = estimate_d7_retention(metrics)
-        d30_retention = estimate_d30_retention(metrics)
         
         # Estimate average playtime
         avg_playtime = estimate_playtime(metrics)
@@ -61,7 +60,6 @@ def calculate_retention(
             game_name=game.name,
             d1_retention=d1_retention,
             d7_retention=d7_retention,
-            d30_retention=d30_retention,
             avg_playtime_minutes=avg_playtime,
             total_visits=total_visits,
             unique_visitors=unique_visitors
@@ -368,80 +366,6 @@ def estimate_d7_retention(metrics: List[GameMetric]) -> Optional[float]:
     
     # Ensure retention is within reasonable bounds
     retention = max(2.0, min(98.0, retention))
-    
-    # Return with 3 decimal places precision
-    return round(retention, 3)
-
-def estimate_d30_retention(metrics: List[GameMetric]) -> Optional[float]:
-    """Estimate D30 retention based on monthly patterns and long-term engagement"""
-    if len(metrics) < 30:
-        return None
-    
-    # Calculate retention based on multiple factors
-    total_visits = sum(m.visits for m in metrics)
-    total_favorites = sum(m.favorites for m in metrics)
-    total_likes = sum(m.likes for m in metrics)
-    total_dislikes = sum(m.dislikes for m in metrics)
-    
-    if total_visits == 0:
-        return None
-    
-    # Factor 1: Monthly visit patterns
-    monthly_visits = {}
-    for metric in metrics:
-        month = metric.created_at.month
-        monthly_visits[month] = monthly_visits.get(month, 0) + metric.visits
-    
-    if len(monthly_visits) < 2:
-        return None
-    
-    months = sorted(monthly_visits.keys())
-    first_month = monthly_visits[months[0]]
-    last_month = monthly_visits[months[-1]]
-    
-    if first_month == 0:
-        return 0.0
-    
-    monthly_retention = (last_month / first_month) * 100
-    
-    # Factor 2: Long-term engagement (favorites and likes vs visits)
-    long_term_engagement = ((total_favorites + total_likes) / total_visits) * 1500  # Scale up
-    
-    # Factor 3: Community sentiment (likes vs dislikes ratio)
-    sentiment_score = 0
-    if total_likes + total_dislikes > 0:
-        sentiment_score = (total_likes / (total_likes + total_dislikes)) * 100
-    else:
-        sentiment_score = 50  # Neutral if no feedback
-    
-    # Factor 4: Visit trend stability
-    trend_stability = 0
-    if len(monthly_visits) > 2:
-        monthly_values = list(monthly_visits.values())
-        # Calculate trend consistency
-        trend_changes = 0
-        for i in range(1, len(monthly_values)):
-            if monthly_values[i] > monthly_values[i-1]:
-                trend_changes += 1
-            elif monthly_values[i] < monthly_values[i-1]:
-                trend_changes -= 1
-        trend_stability = max(0, 100 - abs(trend_changes) * 10)
-    
-    # Combine factors with weights
-    retention = (
-        min(monthly_retention, 100) * 0.4 +        # 40% weight on monthly retention
-        min(long_term_engagement, 100) * 0.25 +    # 25% weight on engagement
-        sentiment_score * 0.2 +                     # 20% weight on sentiment
-        trend_stability * 0.15                      # 15% weight on stability
-    )
-    
-    # Add game-specific variation
-    game_id = metrics[0].game_id if metrics else 0
-    random_factor = (game_id % 12) - 6  # -6 to +6 variation
-    retention += random_factor
-    
-    # Ensure retention is within reasonable bounds
-    retention = max(1.0, min(95.0, retention))
     
     # Return with 3 decimal places precision
     return round(retention, 3)

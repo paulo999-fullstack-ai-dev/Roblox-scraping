@@ -6,7 +6,7 @@ A comprehensive platform for scraping, analyzing, and discovering Roblox games w
 
 - **Game Discovery**: Detect newly published games in near real-time
 - **Growth Analysis**: Track day-over-day and week-over-week growth with precise calculations
-- **Engagement Metrics**: Calculate D1, D7, D30 retention with 3-decimal precision
+- **Engagement Metrics**: Calculate D1, D7 retention with 3-decimal precision
 - **Resonance Analysis**: Find games with similar audiences using group membership data
 - **Automated Scraping**: Scheduled scraping every hour with manual override capability
 - **Real-time Dashboard**: Modern React frontend with live data visualization

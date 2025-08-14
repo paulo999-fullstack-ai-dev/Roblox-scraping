@@ -305,16 +305,10 @@ export default function GameDetail() {
                      <div className="text-sm text-gray-600">D1 Retention</div>
                    </div>
                    <div className="text-center">
-                     <div className="text-2xl font-bold text-green-600">
+                     <div className="text-2xl font-bold text-primary-600">
                        {analytics.retention.d7_retention?.toFixed(3) || 'N/A'}%
                      </div>
                      <div className="text-sm text-gray-600">D7 Retention</div>
-                   </div>
-                   <div className="text-center">
-                     <div className="text-2xl font-bold text-purple-600">
-                       {analytics.retention.d30_retention?.toFixed(3) || 'N/A'}%
-                     </div>
-                     <div className="text-sm text-gray-600">D30 Retention</div>
                    </div>
                 </div>
               </div>

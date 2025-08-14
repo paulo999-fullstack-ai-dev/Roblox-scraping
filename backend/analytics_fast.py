@@ -75,7 +75,8 @@ def get_fast_retention_data(db: Session, days: int = 7, min_visits: int = 1000) 
                 g.id as game_id,
                 g.name as game_name,
                 COALESCE(gm.visits, 0) as total_visits,
-                COALESCE(gm.active_players, 0) as active_players
+                COALESCE(gm.active_players, 0) as current_active_players,
+                g.roblox_created
             FROM games g
             LEFT JOIN (
                 SELECT DISTINCT ON (game_id) game_id, visits, active_players
@@ -91,73 +92,51 @@ def get_fast_retention_data(db: Session, days: int = 7, min_visits: int = 1000) 
         retention_data = []
         for row in result:
             game_id = row.game_id
-            visits = row.total_visits or 0
-            active_players = row.active_players or 0
+            total_visits = row.total_visits or 0
+            current_active_players = row.current_active_players or 0
+            roblox_created = row.roblox_created
             
-            # Calculate EXACT retention based on real user behavior
-            # Get actual user return rates from historical data
+            # Calculate days since creation
+            if roblox_created:
+                days_since_creation = max(1, (datetime.datetime.now() - roblox_created).days)
+            else:
+                days_since_creation = 1
             
-            # D1 Retention: Users who returned within 1 day
-            d1_returned = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as days_returned
+            # Calculate average daily visits
+            avg_daily_visits = total_visits / days_since_creation if days_since_creation > 0 else 0
+            
+            # Calculate average active players (sum all active players and divide by record count)
+            avg_active_players_result = db.execute(text("""
+                SELECT 
+                    AVG(active_players) as avg_active_players,
+                    COUNT(*) as record_count
                 FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '2 days'
-                AND created_at < NOW() - INTERVAL '1 day'
+                WHERE game_id = :game_id
             """), {'game_id': game_id}).first()
             
-            d1_total = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as total_days
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '2 days'
-            """), {'game_id': game_id}).first()
+            avg_active_players = avg_active_players_result.avg_active_players if avg_active_players_result else 0
             
-            # D7 Retention: Users who returned within 7 days
-            d7_returned = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as days_returned
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '8 days'
-                AND created_at < NOW() - INTERVAL '1 day'
-            """), {'game_id': game_id}).first()
+            # Calculate pseudo retention
+            pseudo_retention = avg_active_players / avg_daily_visits if avg_daily_visits > 0 else 0
             
-            d7_total = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as total_days
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '8 days'
-            """), {'game_id': game_id}).first()
+            # Calculate D1 and D7 retention using factors
+            assumed_D1_factor = 0.28
+            assumed_D7_factor = 0.08
             
-            # D30 Retention: Users who returned within 30 days
-            d30_returned = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as days_returned
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '31 days'
-                AND created_at < NOW() - INTERVAL '1 day'
-            """), {'game_id': game_id}).first()
+            approx_D1 = pseudo_retention * assumed_D1_factor
+            approx_D7 = pseudo_retention * assumed_D7_factor
             
-            d30_total = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as total_days
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '31 days'
-            """), {'game_id': game_id}).first()
-            
-            # Calculate EXACT retention percentages
-            d1_retention = (d1_returned.days_returned / d1_total.total_days * 100) if d1_total.total_days > 0 else 0.0
-            d7_retention = (d7_returned.days_returned / d7_total.total_days * 100) if d7_total.total_days > 0 else 0.0
-            d30_retention = (d30_returned.days_returned / d30_total.total_days * 100) if d30_total.total_days > 0 else 0.0
+            # Ensure retention values are reasonable (0-100%)
+            approx_D1 = max(0.0, min(100.0, approx_D1 * 100))
+            approx_D7 = max(0.0, min(100.0, approx_D7 * 100))
             
             retention_data.append({
                 'game_id': game_id,
                 'game_name': row.game_name,
-                'total_visits': visits,
-                'active_players': active_players,
-                'd1_retention': round(d1_retention, 1),
-                'd7_retention': round(d7_retention, 1),
-                'd30_retention': round(d30_retention, 1)
+                'total_visits': total_visits,
+                'active_players': current_active_players,
+                'd1_retention': round(approx_D1, 2),
+                'd7_retention': round(approx_D7, 2)
             })
         
         return retention_data
@@ -447,61 +426,41 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
             # Simple retention calculation based on visits
             visits = row.visits or 0
             
-            # Calculate EXACT retention based on real user return data
-            # Get actual user return rates from historical data
+            # Calculate retention using avg_daily_visits and pseudo_retention formula
             
-            # D1 Retention: Users who returned within 1 day
-            d1_returned = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as days_returned
+            # Calculate days since creation
+            if row.roblox_created:
+                days_since_creation = max(1, (datetime.datetime.now() - row.roblox_created).days)
+            else:
+                days_since_creation = 1
+            
+            # Calculate average daily visits
+            avg_daily_visits = visits / days_since_creation if days_since_creation > 0 else 0
+            
+            # Calculate average active players (sum all active players and divide by record count)
+            avg_active_players_result = db.execute(text("""
+                SELECT 
+                    AVG(active_players) as avg_active_players,
+                    COUNT(*) as record_count
                 FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '2 days'
-                AND created_at < NOW() - INTERVAL '1 day'
+                WHERE game_id = :game_id
             """), {'game_id': game_id}).first()
             
-            d1_total = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as total_days
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '2 days'
-            """), {'game_id': game_id}).first()
+            avg_active_players = avg_active_players_result.avg_active_players if avg_active_players_result else 0
             
-            # D7 Retention: Users who returned within 7 days
-            d7_returned = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as days_returned
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '8 days'
-                AND created_at < NOW() - INTERVAL '1 day'
-            """), {'game_id': game_id}).first()
+            # Calculate pseudo retention
+            pseudo_retention = avg_active_players / avg_daily_visits if avg_daily_visits > 0 else 0
             
-            d7_total = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as total_days
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '8 days'
-            """), {'game_id': game_id}).first()
+            # Calculate D1 and D7 retention using factors
+            assumed_D1_factor = 0.28
+            assumed_D7_factor = 0.08
             
-            # D30 Retention: Users who returned within 30 days
-            d30_returned = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as days_returned
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '31 days'
-                AND created_at < NOW() - INTERVAL '1 day'
-            """), {'game_id': game_id}).first()
+            approx_D1 = pseudo_retention * assumed_D1_factor
+            approx_D7 = pseudo_retention * assumed_D7_factor
             
-            d30_total = db.execute(text("""
-                SELECT COUNT(DISTINCT DATE(created_at)) as total_days
-                FROM game_metrics 
-                WHERE game_id = :game_id 
-                AND created_at >= NOW() - INTERVAL '31 days'
-            """), {'game_id': game_id}).first()
-            
-            # Calculate EXACT retention percentages
-            d1_retention = (d1_returned.days_returned / d1_total.total_days * 100) if d1_total.total_days > 0 else 0.0
-            d7_retention = (d7_returned.days_returned / d7_total.total_days * 100) if d7_total.total_days > 0 else 0.0
-            d30_retention = (d30_returned.days_returned / d30_total.total_days * 100) if d30_total.total_days > 0 else 0.0
+            # Ensure retention values are reasonable (0-100%)
+            d1_retention = max(0.0, min(100.0, approx_D1 * 100))
+            d7_retention = max(0.0, min(100.0, approx_D7 * 100))
             
             games_data.append({
                 'game_id': game_id,
@@ -518,7 +477,6 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
                 'active_players': row.active_players or 0,
                 'd1_retention': d1_retention,
                 'd7_retention': d7_retention,
-                'd30_retention': d30_retention,
                 'growth_percent': daily_growth_percent,
                 'today_avg_active': today_avg,
                 'yesterday_avg_active': yesterday_avg

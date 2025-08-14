@@ -70,12 +70,10 @@ class ScrapingLogResponse(BaseModel):
 class RetentionResponse(BaseModel):
     game_id: int
     game_name: str
-    d1_retention: Optional[float] = None
-    d7_retention: Optional[float] = None
-    d30_retention: Optional[float] = None
-    avg_playtime_minutes: Optional[float] = None
     total_visits: int
-    unique_visitors: int
+    active_players: int
+    d1_retention: float
+    d7_retention: float
 
 class GrowthResponse(BaseModel):
     game_id: int

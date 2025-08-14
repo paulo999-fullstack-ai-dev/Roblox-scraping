@@ -110,7 +110,7 @@ The database tables will be created automatically when you start the backend.
 ### Key Features
 - **Game Discovery**: Detect newly published games
 - **Growth Analysis**: Track day-over-day and week-over-week growth
-- **Retention Metrics**: Calculate D1, D7, D30 retention
+- **Retention Metrics**: Calculate D1, D7 retention
 - **Resonance Analysis**: Find games with similar audiences
 - **Automated Scraping**: Runs every hour
 - **Real-time Dashboard**: Live monitoring and control

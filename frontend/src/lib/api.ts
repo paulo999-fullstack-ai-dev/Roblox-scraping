@@ -65,7 +65,6 @@ export interface RetentionData {
   game_name: string
   d1_retention?: number
   d7_retention?: number
-  d30_retention?: number
   avg_playtime_minutes?: number
   total_visits: number
   unique_visitors: number
@@ -116,7 +115,6 @@ export interface GameAnalyticsTableData {
   active_players: number
   d1_retention: number
   d7_retention: number
-  d30_retention: number
   growth_percent: number
   today_avg_active?: number
   yesterday_avg_active?: number
