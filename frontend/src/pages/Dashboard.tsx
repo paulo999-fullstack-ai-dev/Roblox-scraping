@@ -130,7 +130,7 @@ export default function Dashboard() {
             <p className="text-sm text-gray-600">Last Run</p>
             <p className="text-sm font-medium text-gray-900">
               {scrapingStatus?.last_run 
-                ? formatDistanceToNow(new Date(scrapingStatus.last_run), { addSuffix: true })
+                ? new Date(scrapingStatus.last_run).toLocaleString()
                 : 'Never'
               }
             </p>

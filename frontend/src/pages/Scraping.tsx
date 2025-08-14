@@ -162,13 +162,13 @@ export default function Scraping() {
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">
-              {status?.last_run ? formatDistanceToNow(new Date(status.last_run), { addSuffix: true }) : 'Never'}
+              {status?.last_run ? new Date(status.last_run).toLocaleString() : 'Never'}
             </div>
             <div className="text-sm text-gray-600">Last Run</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">
-              {status?.next_run ? formatDistanceToNow(new Date(status.next_run), { addSuffix: true }) : 'Not scheduled'}
+              {status?.next_run ? new Date(status.next_run).toLocaleString() : 'Not scheduled'}
             </div>
             <div className="text-sm text-gray-600">Next Run</div>
           </div>
