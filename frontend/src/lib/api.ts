@@ -127,6 +127,7 @@ export interface DailyGrowthChartData {
   growth_percent: number
   avg_active_players: number
   previous_avg_active_players: number
+  series_name: string
 }
 
 // API functions

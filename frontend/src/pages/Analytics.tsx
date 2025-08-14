@@ -24,7 +24,8 @@ import {
   Bar,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  Legend
 } from 'recharts'
 
 export default function Analytics() {
@@ -438,16 +439,33 @@ export default function Analytics() {
                 />
                 <Tooltip 
                   labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                  formatter={(value, name) => [`${value}%`, 'Growth %']}
+                  formatter={(value, name) => [`${value}%`, name]}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="growth_percent" 
-                  stroke="#3B82F6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2, fill: '#fff' }}
-                />
+                <Legend />
+                {Array.from(new Set(dailyGrowthData.map(item => item.series_name))).map((seriesName, index) => {
+                  const colors = [
+                    '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
+                    '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1',
+                    '#14B8A6', '#F43F5E', '#EAB308', '#A855F7', '#0EA5E9',
+                    '#22C55E', '#F97316', '#8B5CF6', '#06B6D4', '#84CC16'
+                  ];
+                  const color = colors[index % colors.length];
+                  
+                  return (
+                    <Line
+                      key={seriesName}
+                      type="monotone"
+                      dataKey="growth_percent"
+                      data={dailyGrowthData.filter(item => item.series_name === seriesName)}
+                      name={seriesName}
+                      stroke={color}
+                      strokeWidth={2}
+                      dot={{ fill: color, strokeWidth: 2, r: 3 }}
+                      activeDot={{ r: 5, stroke: color, strokeWidth: 2, fill: '#fff' }}
+                      connectNulls={false}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           ) : (
