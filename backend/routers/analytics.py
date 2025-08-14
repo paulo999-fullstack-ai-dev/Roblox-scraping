@@ -112,23 +112,21 @@ async def get_games_analytics_table(
     """Get comprehensive games table with analytics for the analytics page"""
     try:
         from analytics_fast import get_fast_games_table_data
-        import asyncio
         
-        # Add timeout to prevent hanging
-        try:
-            # Run the database query with a timeout
-            result = await asyncio.wait_for(
-                asyncio.to_thread(get_fast_games_table_data, db, skip, limit, sort_by, sort_order),
-                timeout=30.0  # 30 second timeout
-            )
-            return result
-        except asyncio.TimeoutError:
-            # If timeout occurs, return empty list
-            return []
+        # Call the function directly (it's synchronous)
+        result = get_fast_games_table_data(db, skip, limit, sort_by, sort_order)
+        
+        # Add debug logging
+        print(f"Games table API called with skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}")
+        print(f"Result length: {len(result) if result else 0}")
+        
+        return result if result else []
             
     except Exception as e:
         # Log error and return empty list
         print(f"Error in get_games_analytics_table: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         return []
 
 @router.get("/daily-growth-chart", response_model=List[Dict[str, Any]])
