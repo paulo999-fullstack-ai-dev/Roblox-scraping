@@ -360,9 +360,7 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
             # Default sorting by game ID
             games_query += " ORDER BY g.id DESC"
         
-        # Add pagination
-        games_query += f" LIMIT {limit} OFFSET {skip}"
-        
+        # Get ALL games (no pagination yet)
         games_result = db.execute(text(games_query)).fetchall()
         
         if not games_result:
@@ -475,8 +473,8 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
             pseudo_retention = avg_active_players / avg_daily_visits if avg_daily_visits > 0 else 0
             
             # Calculate D1 and D7 retention using factors
-            assumed_D1_factor = 0.28
-            assumed_D7_factor = 0.08
+            assumed_D1_factor = 3.5
+            assumed_D7_factor = 1.5
             
             approx_D1 = pseudo_retention * assumed_D1_factor
             approx_D7 = pseudo_retention * assumed_D7_factor
@@ -505,12 +503,24 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
                 'yesterday_avg_active': yesterday_avg
             })
         
-        # Apply sorting for metric fields if needed
-        if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players']:
+        # Apply sorting to ALL data first (before pagination)
+        if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players', 'd1_retention', 'd7_retention', 'growth_percent']:
             reverse = sort_order.upper() == 'DESC'
             games_data.sort(key=lambda x: x.get(sort_by, 0), reverse=reverse)
+        elif sort_by == 'name':
+            reverse = sort_order.upper() == 'DESC'
+            games_data.sort(key=lambda x: x.get('game_name', ''), reverse=reverse)
+        elif sort_by in ['created_at', 'updated_at', 'roblox_created', 'roblox_updated']:
+            reverse = sort_order.upper() == 'DESC'
+            games_data.sort(key=lambda x: x.get(sort_by, ''), reverse=reverse)
+        else:
+            # Default sorting by visits descending
+            games_data.sort(key=lambda x: x.get('visits', 0), reverse=True)
         
-        return games_data
+        # Apply pagination AFTER sorting
+        paginated_data = games_data[skip:skip + limit]
+        
+        return paginated_data
         
     except Exception as e:
         logger.error(f"Error getting fast games table data: {str(e)}")
@@ -557,15 +567,14 @@ def get_daily_growth_chart_data(db: Session, game_ids: List[int]) -> List[Dict]:
                 'data_points': row.data_points
             }
         
-        # Generate chart data with separate series for each game
+        # Generate chart data with proper X-axis positioning
         chart_data = []
         
-        # Get all dates in the last 7 days
+        # Get all dates in the last 7 days (oldest to newest)
         all_dates = []
-        for i in range(7):
+        for i in range(6, -1, -1):  # 6 days ago to today
             date = datetime.datetime.now() - datetime.timedelta(days=i)
             all_dates.append(date.date().isoformat())
-        all_dates.reverse()  # Oldest to newest
         
         # Create data points for each game on each date
         for game_id, game_info in games_data.items():
@@ -595,7 +604,7 @@ def get_daily_growth_chart_data(db: Session, game_ids: List[int]) -> List[Dict]:
                         'date': date,
                         'growth_percent': float(growth_percent),
                         'avg_active_players': current_avg,
-                        'series_name': f"{game_info['game_name']} (ID: {game_id})"  # Unique series name for each game
+                        'series_name': f"{game_info['game_name']} (ID: {game_id})"
                     })
                 else:
                     # No data for this date, add placeholder
