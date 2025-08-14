@@ -103,7 +103,7 @@ def get_fast_retention_data(db: Session, days: int = 7, min_visits: int = 1000) 
                 days_since_creation = 1
             
             # Calculate average daily visits
-            avg_daily_visits = total_visits / days_since_creation if days_since_creation > 0 else 0
+            avg_daily_visits = float(total_visits) / days_since_creation if days_since_creation > 0 else 0
             
             # Calculate average active players (sum all active players and divide by record count)
             avg_active_players_result = db.execute(text("""
@@ -114,7 +114,7 @@ def get_fast_retention_data(db: Session, days: int = 7, min_visits: int = 1000) 
                 WHERE game_id = :game_id
             """), {'game_id': game_id}).first()
             
-            avg_active_players = avg_active_players_result.avg_active_players if avg_active_players_result else 0
+            avg_active_players = float(avg_active_players_result.avg_active_players) if avg_active_players_result and avg_active_players_result.avg_active_players is not None else 0
             
             # Calculate pseudo retention
             pseudo_retention = avg_active_players / avg_daily_visits if avg_daily_visits > 0 else 0
@@ -208,15 +208,15 @@ def get_fast_growth_data(db: Session, window_days: int = 7) -> List[Dict]:
                     return 0.0
                 return ((current - previous) / previous) * 100
             
-            current_visits_avg = current_period.avg_visits if current_period else 0
-            current_favorites_avg = current_period.avg_favorites if current_period else 0
-            current_active_players_avg = current_period.avg_active_players if current_period else 0
-            current_likes_avg = current_period.avg_likes if current_period else 0
+            current_visits_avg = float(current_period.avg_visits) if current_period and current_period.avg_visits is not None else 0
+            current_favorites_avg = float(current_period.avg_favorites) if current_period and current_period.avg_favorites is not None else 0
+            current_active_players_avg = float(current_period.avg_active_players) if current_period and current_period.avg_active_players is not None else 0
+            current_likes_avg = float(current_period.avg_likes) if current_period and current_period.avg_likes is not None else 0
             
-            previous_visits_avg = previous_period.avg_visits if previous_period else 0
-            previous_favorites_avg = previous_period.avg_favorites if previous_period else 0
-            previous_active_players_avg = previous_period.avg_active_players if previous_period else 0
-            previous_likes_avg = previous_period.avg_likes if previous_period else 0
+            previous_visits_avg = float(previous_period.avg_visits) if previous_period and previous_period.avg_visits is not None else 0
+            previous_favorites_avg = float(previous_period.avg_favorites) if previous_period and previous_period.avg_favorites is not None else 0
+            previous_active_players_avg = float(previous_period.avg_active_players) if previous_period and previous_period.avg_active_players is not None else 0
+            previous_likes_avg = float(previous_period.avg_likes) if previous_period and previous_period.avg_likes is not None else 0
             
             # Calculate EXACT growth percentages
             visits_growth = calculate_exact_growth(current_visits_avg, previous_visits_avg)
@@ -409,11 +409,11 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
                 dislikes = 0
                 active_players = 0
             else:
-                visits = metrics.visits or 0
-                favorites = metrics.favorites or 0
-                likes = metrics.likes or 0
-                dislikes = metrics.dislikes or 0
-                active_players = metrics.active_players or 0
+                visits = float(metrics.visits) if metrics.visits is not None else 0
+                favorites = float(metrics.favorites) if metrics.favorites is not None else 0
+                likes = float(metrics.likes) if metrics.likes is not None else 0
+                dislikes = float(metrics.dislikes) if metrics.dislikes is not None else 0
+                active_players = float(metrics.active_players) if metrics.active_players is not None else 0
             
             # Calculate daily growth (simplified)
             today_avg = active_players  # Use current active players as approximation
@@ -442,7 +442,7 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
                 WHERE game_id = :game_id
             """), {'game_id': game_id}).first()
             
-            avg_active_players = avg_active_players_result.avg_active_players if avg_active_players_result else 0
+            avg_active_players = float(avg_active_players_result.avg_active_players) if avg_active_players_result and avg_active_players_result.avg_active_players is not None else 0
             
             # Calculate pseudo retention
             pseudo_retention = avg_active_players / avg_daily_visits if avg_daily_visits > 0 else 0
