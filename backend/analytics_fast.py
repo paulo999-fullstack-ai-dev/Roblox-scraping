@@ -586,20 +586,21 @@ def get_daily_growth_chart_data(db: Session, game_ids: List[int]) -> List[Dict]:
                 'data_points': row.data_points
             }
         
-        # Generate chart data with proper X-axis positioning
-        chart_data = []
-        
-        # Get all dates in the last 7 days (oldest to newest)
+        # Get all dates in the last 7 days (oldest to newest) - ONLY ONCE
         all_dates = []
         for i in range(6, -1, -1):  # 6 days ago to today
             date = datetime.datetime.now() - datetime.timedelta(days=i)
             all_dates.append(date.date().isoformat())
         
-        # Create data points for each game on each date
-        for game_id, game_info in games_data.items():
-            daily_data = game_info['daily_data']
-            
-            for date in all_dates:
+        # Create chart data with proper time series structure
+        # Each date should appear only once, with data for all games
+        chart_data = []
+        
+        for date in all_dates:
+            # For each date, create data points for all games
+            for game_id, game_info in games_data.items():
+                daily_data = game_info['daily_data']
+                
                 if date in daily_data:
                     # We have data for this date
                     current_avg = daily_data[date]['avg_active_players']
@@ -626,7 +627,7 @@ def get_daily_growth_chart_data(db: Session, game_ids: List[int]) -> List[Dict]:
                         'series_name': f"{game_info['game_name']} (ID: {game_id})"
                     })
                 else:
-                    # No data for this date, add placeholder
+                    # No data for this date, add placeholder with 0 values
                     chart_data.append({
                         'game_id': game_id,
                         'game_name': game_info['game_name'],

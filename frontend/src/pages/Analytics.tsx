@@ -428,12 +428,14 @@ export default function Analytics() {
             </div>
           ) : dailyGrowthData && dailyGrowthData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart>
+              <LineChart data={dailyGrowthData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="date" 
                   tickFormatter={(value) => new Date(value).toLocaleDateString()}
                   type="category"
+                  allowDuplicatedCategory={false}
+                  scale="point"
                 />
                 <YAxis 
                   label={{ value: 'Daily Growth (%)', angle: -90, position: 'insideLeft' }}
@@ -452,17 +454,11 @@ export default function Analytics() {
                   ];
                   const color = colors[index % colors.length];
                   
-                  // Filter data for this specific game series and sort by date
-                  const seriesData = dailyGrowthData
-                    .filter(item => item.series_name === seriesName)
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                  
                   return (
                     <Line
                       key={seriesName}
                       type="monotone"
                       dataKey="growth_percent"
-                      data={seriesData}
                       name={seriesName}
                       stroke={color}
                       strokeWidth={2}
