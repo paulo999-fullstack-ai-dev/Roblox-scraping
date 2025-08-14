@@ -338,6 +338,8 @@ def get_fast_game_metrics(db: Session, game_id: int, days: int = 30) -> List[Dic
 def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sort_by: str = "visits", sort_order: str = "desc") -> List[Dict]:
     """Get comprehensive games table data with analytics for sorting and display - WITH PROPER GROWTH CALCULATION"""
     try:
+        logger.info(f"Starting get_fast_games_table_data with skip={skip}, limit={limit}, sort_by={sort_by}, sort_order={sort_order}")
+        
         # Simple approach: get all games first, then get their latest metrics
         games_query = """
             SELECT 
@@ -360,14 +362,19 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
             # Default sorting by game ID
             games_query += " ORDER BY g.id DESC"
         
+        logger.info(f"Executing games query: {games_query}")
+        
         # Get ALL games (no pagination yet)
         games_result = db.execute(text(games_query)).fetchall()
+        logger.info(f"Found {len(games_result)} games")
         
         if not games_result:
+            logger.warning("No games found in database")
             return []
         
         # Get game IDs for metrics query
         game_ids = [row.game_id for row in games_result]
+        logger.info(f"Game IDs: {game_ids[:5]}...")  # Show first 5 IDs
         
         # Get latest metrics for all these games
         metrics_query = """
@@ -388,10 +395,13 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
             ) latest ON gm.game_id = latest.game_id AND gm.created_at = latest.max_created_at
         """
         
+        logger.info(f"Executing metrics query for {len(game_ids)} games")
         metrics_result = db.execute(text(metrics_query), {'game_ids': game_ids}).fetchall()
+        logger.info(f"Found {len(metrics_result)} metrics records")
         
         # Create a lookup for metrics
         metrics_lookup = {row.game_id: row for row in metrics_result}
+        logger.info(f"Metrics lookup keys: {list(metrics_lookup.keys())[:5]}...")
         
         # Now combine games with their metrics
         games_data = []
@@ -399,8 +409,11 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
             game_id = game_row.game_id
             metrics = metrics_lookup.get(game_id)
             
+            logger.debug(f"Processing game {game_id}: {game_row.game_name}")
+            
             if not metrics:
                 # No metrics found, use default values
+                logger.warning(f"No metrics found for game {game_id}: {game_row.game_name}")
                 visits = 0
                 favorites = 0
                 likes = 0
@@ -503,6 +516,8 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
                 'yesterday_avg_active': yesterday_avg
             })
         
+        logger.info(f"Processed {len(games_data)} games with data")
+        
         # Apply sorting to ALL data first (before pagination)
         if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players', 'd1_retention', 'd7_retention', 'growth_percent']:
             reverse = sort_order.upper() == 'DESC'
@@ -519,11 +534,15 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
         
         # Apply pagination AFTER sorting
         paginated_data = games_data[skip:skip + limit]
+        logger.info(f"Returning {len(paginated_data)} games after pagination (skip={skip}, limit={limit})")
         
         return paginated_data
         
     except Exception as e:
         logger.error(f"Error getting fast games table data: {str(e)}")
+        logger.error(f"Exception details: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         # Return empty list on error instead of crashing
         return []
 
