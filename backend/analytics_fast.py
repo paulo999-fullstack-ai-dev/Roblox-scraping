@@ -593,14 +593,14 @@ def get_daily_growth_chart_data(db: Session, game_ids: List[int]) -> List[Dict]:
             all_dates.append(date.date().isoformat())
         
         # Create chart data with proper time series structure
-        # Each date should appear only once, with data for all games
+        # Each game should have its own unique data points
         chart_data = []
         
-        for date in all_dates:
-            # For each date, create data points for all games
-            for game_id, game_info in games_data.items():
-                daily_data = game_info['daily_data']
-                
+        # Create data points for each game on each date
+        for game_id, game_info in games_data.items():
+            daily_data = game_info['daily_data']
+            
+            for date in all_dates:
                 if date in daily_data:
                     # We have data for this date
                     current_avg = daily_data[date]['avg_active_players']
@@ -615,8 +615,10 @@ def get_daily_growth_chart_data(db: Session, game_ids: List[int]) -> List[Dict]:
                     if previous_date and daily_data[previous_date]['avg_active_players'] > 0:
                         previous_avg = daily_data[previous_date]['avg_active_players']
                         growth_percent = round(((current_avg - previous_avg) / previous_avg) * 100, 2)
+                        logger.info(f"Game {game_id} ({game_info['game_name']}) - Date: {date}, Current: {current_avg}, Previous: {previous_avg}, Growth: {growth_percent}%")
                     else:
                         growth_percent = 0.0
+                        logger.info(f"Game {game_id} ({game_info['game_name']}) - Date: {date}, Current: {current_avg}, No previous data, Growth: 0%")
                     
                     chart_data.append({
                         'game_id': game_id,
