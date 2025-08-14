@@ -132,6 +132,29 @@ async def get_games_analytics_table(
         print(f"Error in get_games_analytics_table: {str(e)}")
         return []
 
+@router.get("/daily-growth-chart", response_model=List[Dict[str, Any]])
+async def get_daily_growth_chart(
+    game_ids: str = Query(..., description="Comma-separated list of game IDs"),
+    db: Session = Depends(get_db)
+):
+    """Get daily growth chart data for the current displayed games"""
+    try:
+        from analytics_fast import get_daily_growth_chart_data
+        
+        # Parse game IDs from comma-separated string
+        game_id_list = [int(id.strip()) for id in game_ids.split(',') if id.strip().isdigit()]
+        
+        if not game_id_list:
+            return []
+        
+        # Get the daily growth data
+        result = get_daily_growth_chart_data(db, game_id_list)
+        return result
+        
+    except Exception as e:
+        print(f"Error in get_daily_growth_chart: {str(e)}")
+        return []
+
 @router.get("/trending", response_model=List[GameAnalyticsResponse])
 async def get_trending_games(
     limit: int = Query(50, ge=1, le=500),

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { analyticsApi, GameAnalyticsTableData } from '../lib/api'
+import { analyticsApi, GameAnalyticsTableData, DailyGrowthChartData } from '../lib/api'
 import { 
   TrendingUp, 
   Users, 
@@ -74,6 +74,23 @@ export default function Analytics() {
       sort_by: tableSortBy, 
       sort_order: tableSortOrder 
     }),
+    retry: 1,
+    staleTime: 300000, // 5 minutes
+    cacheTime: 900000, // 15 minutes
+    refetchOnWindowFocus: false,
+  })
+
+  // Daily growth chart data for current displayed games
+  const { data: dailyGrowthData, isLoading: dailyGrowthLoading } = useQuery({
+    queryKey: ['daily-growth-chart', gamesTableData?.map(g => g.game_id)],
+    queryFn: () => {
+      if (gamesTableData && gamesTableData.length > 0) {
+        const gameIds = gamesTableData.map(g => g.game_id)
+        return analyticsApi.getDailyGrowthChart(gameIds)
+      }
+      return []
+    },
+    enabled: !!gamesTableData && gamesTableData.length > 0,
     retry: 1,
     staleTime: 300000, // 5 minutes
     cacheTime: 900000, // 15 minutes
@@ -293,31 +310,34 @@ export default function Analytics() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="name">Game Name</SortableHeader>
+                    Game Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="visits">Visits</SortableHeader>
+                    Visits
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="favorites">Favorites</SortableHeader>
+                    Favorites
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="likes">Likes</SortableHeader>
+                    Likes
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="dislikes">Dislikes</SortableHeader>
+                    Dislikes
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="active_players">Active Players</SortableHeader>
+                    Active Players
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="d1_retention">D1 Retention</SortableHeader>
+                    Daily Growth %
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="d7_retention">D7 Retention</SortableHeader>
+                    D1 Retention
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortableHeader field="growth_percent">Growth %</SortableHeader>
+                    D7 Retention
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    D30 Retention
                   </th>
                 </tr>
               </thead>
@@ -344,15 +364,18 @@ export default function Analytics() {
                       {game.active_players.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span className={`font-medium ${game.growth_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {game.growth_percent >= 0 ? '+' : ''}{game.growth_percent.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {game.d1_retention.toFixed(1)}%
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {game.d7_retention.toFixed(1)}%
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className={`font-medium ${game.growth_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {game.growth_percent >= 0 ? '+' : ''}{game.growth_percent.toFixed(1)}%
-                      </span>
+                      {game.d30_retention.toFixed(1)}%
                     </td>
                   </tr>
                 ))}
@@ -372,7 +395,7 @@ export default function Analytics() {
         {gamesTableData && gamesTableData.length > 0 && (
           <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-gray-700">
-              Showing {tablePage * tableLimit + 1} to {Math.min((tablePage + 1) * tableLimit, gamesTableData.length)} of {gamesTableData.length} games
+              Showing {tablePage * tableLimit + 1} to {tablePage * tableLimit + gamesTableData.length}
             </div>
             <div className="flex space-x-2">
               <button
@@ -393,6 +416,57 @@ export default function Analytics() {
           </div>
         )}
       </div>
+
+      {/* Daily Growth Chart for Current Games */}
+      {gamesTableData && gamesTableData.length > 0 && (
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Daily Active Player Growth</h2>
+            <div className="text-sm text-gray-600">
+              Showing growth for {gamesTableData.length} displayed games
+            </div>
+          </div>
+          
+          {dailyGrowthLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+              <span className="ml-3 text-gray-600">Loading growth chart data...</span>
+            </div>
+          ) : dailyGrowthData && dailyGrowthData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={dailyGrowthData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                />
+                <YAxis 
+                  label={{ value: 'Daily Growth (%)', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip 
+                  labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                  formatter={(value, name) => [`${value}%`, 'Growth %']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="growth_percent" 
+                  stroke="#3B82F6" 
+                  strokeWidth={2}
+                  dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2, fill: '#fff' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-gray-500 text-lg font-semibold mb-2">No Growth Data Available</div>
+              <div className="text-gray-400 text-sm">
+                Need at least 2 days of data to calculate growth
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 } 

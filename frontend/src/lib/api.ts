@@ -118,6 +118,17 @@ export interface GameAnalyticsTableData {
   d7_retention: number
   d30_retention: number
   growth_percent: number
+  today_avg_active?: number
+  yesterday_avg_active?: number
+}
+
+export interface DailyGrowthChartData {
+  game_id: number
+  game_name: string
+  date: string
+  growth_percent: number
+  avg_active_players: number
+  previous_avg_active_players: number
 }
 
 // API functions
@@ -217,6 +228,14 @@ export const analyticsApi = {
     sort_order?: string
   }) => {
     const response = await api.get<GameAnalyticsTableData[]>('/analytics/games-table', { params })
+    return response.data
+  },
+
+  getDailyGrowthChart: async (gameIds: number[]) => {
+    const gameIdsParam = gameIds.join(',')
+    const response = await api.get<DailyGrowthChartData[]>('/analytics/daily-growth-chart', { 
+      params: { game_ids: gameIdsParam } 
+    })
     return response.data
   },
 }

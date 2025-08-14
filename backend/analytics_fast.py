@@ -291,10 +291,10 @@ def get_fast_game_metrics(db: Session, game_id: int, days: int = 30) -> List[Dic
         return [] 
 
 def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sort_by: str = "visits", sort_order: str = "desc") -> List[Dict]:
-    """Get comprehensive games table data with analytics for sorting and display - SIMPLIFIED VERSION"""
+    """Get comprehensive games table data with analytics for sorting and display - WITH PROPER GROWTH CALCULATION"""
     try:
-        # Simple and fast query - just get games with their latest metrics
-        query = """
+        # First get the games with their latest metrics
+        base_query = """
             SELECT 
                 g.id as game_id,
                 g.name as game_name,
@@ -324,31 +324,65 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
         
         # Add sorting
         if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players']:
-            query += f" ORDER BY gm.{sort_by} {sort_order.upper()}"
+            base_query += f" ORDER BY gm.{sort_by} {sort_order.upper()}"
         elif sort_by == 'name':
-            query += f" ORDER BY g.name {sort_order.upper()}"
+            base_query += f" ORDER BY g.name {sort_order.upper()}"
         else:
-            query += f" ORDER BY g.{sort_by} {sort_order.upper()}"
+            base_query += f" ORDER BY g.{sort_by} {sort_order.upper()}"
         
         # Add pagination
-        query += f" LIMIT {limit} OFFSET {skip}"
+        base_query += f" LIMIT {limit} OFFSET {skip}"
         
-        result = db.execute(text(query)).fetchall()
+        result = db.execute(text(base_query)).fetchall()
         
-        # Convert to list of dictionaries with simple analytics
+        # Now calculate daily growth for each game
         games_data = []
         for row in result:
+            game_id = row.game_id
+            
+            # Get today's and yesterday's data for this game
+            today_query = """
+                SELECT 
+                    DATE(created_at) as date,
+                    AVG(active_players) as avg_active_players,
+                    COUNT(*) as data_points
+                FROM game_metrics 
+                WHERE game_id = :game_id 
+                AND DATE(created_at) = CURRENT_DATE
+                GROUP BY DATE(created_at)
+            """
+            
+            yesterday_query = """
+                SELECT 
+                    DATE(created_at) as date,
+                    AVG(active_players) as avg_active_players,
+                    COUNT(*) as data_points
+                FROM game_metrics 
+                WHERE game_id = :game_id 
+                AND DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'
+                GROUP BY DATE(created_at)
+            """
+            
+            today_result = db.execute(text(today_query), {'game_id': game_id}).first()
+            yesterday_result = db.execute(text(yesterday_query), {'game_id': game_id}).first()
+            
+            # Calculate daily growth
+            today_avg = today_result.avg_active_players if today_result else 0
+            yesterday_avg = yesterday_result.avg_active_players if yesterday_result else 0
+            
+            if yesterday_avg > 0:
+                daily_growth_percent = round(((today_avg - yesterday_avg) / yesterday_avg) * 100, 2)
+            else:
+                daily_growth_percent = 0.0
+            
             # Simple retention calculation based on visits
             visits = row.visits or 0
             d1_retention = 65.0 if visits > 10000 else 55.0
             d7_retention = 50.0 if visits > 10000 else 40.0
             d30_retention = 40.0 if visits > 10000 else 30.0
             
-            # Simple growth calculation
-            growth_percent = round((visits * 0.1 + (row.favorites or 0) * 0.2 + (row.active_players or 0) * 0.3), 2)
-            
             games_data.append({
-                'game_id': row.game_id,
+                'game_id': game_id,
                 'game_name': row.game_name,
                 'genre': row.genre,
                 'roblox_created': row.roblox_created.isoformat() if row.roblox_created else None,
@@ -363,7 +397,9 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
                 'd1_retention': d1_retention,
                 'd7_retention': d7_retention,
                 'd30_retention': d30_retention,
-                'growth_percent': growth_percent
+                'growth_percent': daily_growth_percent,
+                'today_avg_active': today_avg,
+                'yesterday_avg_active': yesterday_avg
             })
         
         return games_data
@@ -371,4 +407,77 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
     except Exception as e:
         logger.error(f"Error getting fast games table data: {str(e)}")
         # Return empty list on error instead of crashing
+        return []
+
+def get_daily_growth_chart_data(db: Session, game_ids: List[int]) -> List[Dict]:
+    """Get daily growth data for chart showing current displayed games' daily active player growth"""
+    try:
+        if not game_ids:
+            return []
+        
+        # Get daily averages for the last 7 days for the specified games
+        query = """
+            SELECT 
+                g.id as game_id,
+                g.name as game_name,
+                DATE(gm.created_at) as date,
+                AVG(gm.active_players) as avg_active_players,
+                COUNT(*) as data_points
+            FROM games g
+            JOIN game_metrics gm ON g.id = gm.game_id
+            WHERE g.id = ANY(:game_ids)
+            AND DATE(gm.created_at) >= CURRENT_DATE - INTERVAL '7 days'
+            GROUP BY g.id, g.name, DATE(gm.created_at)
+            ORDER BY g.id, DATE(gm.created_at)
+        """
+        
+        result = db.execute(text(query), {'game_ids': game_ids}).fetchall()
+        
+        # Organize data by game and calculate daily growth
+        games_data = {}
+        for row in result:
+            game_id = row.game_id
+            if game_id not in games_data:
+                games_data[game_id] = {
+                    'game_id': game_id,
+                    'game_name': row.game_name,
+                    'daily_data': {}
+                }
+            
+            games_data[game_id]['daily_data'][row.date.isoformat()] = {
+                'avg_active_players': row.avg_active_players,
+                'data_points': row.data_points
+            }
+        
+        # Calculate daily growth percentages
+        chart_data = []
+        for game_id, game_info in games_data.items():
+            daily_data = game_info['daily_data']
+            dates = sorted(daily_data.keys())
+            
+            for i in range(1, len(dates)):
+                current_date = dates[i]
+                previous_date = dates[i-1]
+                
+                current_avg = daily_data[current_date]['avg_active_players']
+                previous_avg = daily_data[previous_date]['avg_active_players']
+                
+                if previous_avg > 0:
+                    growth_percent = round(((current_avg - previous_avg) / previous_avg) * 100, 2)
+                else:
+                    growth_percent = 0.0
+                
+                chart_data.append({
+                    'game_id': game_id,
+                    'game_name': game_info['game_name'],
+                    'date': current_date,
+                    'growth_percent': growth_percent,
+                    'avg_active_players': current_avg,
+                    'previous_avg_active_players': previous_avg
+                })
+        
+        return chart_data
+        
+    except Exception as e:
+        logger.error(f"Error getting daily growth chart data: {str(e)}")
         return [] 

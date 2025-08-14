@@ -119,9 +119,9 @@ export default function Games() {
       </div>
 
       {/* Debug Info */}
-      <div className="text-sm text-gray-500 bg-gray-100 p-2 rounded">
+      {/* <div className="text-sm text-gray-500 bg-gray-100 p-2 rounded">
         Debug: Search="{search}", Sort="{sortBy}" {sortOrder}, Page={page}, Games: {games?.length || 0}
-      </div>
+      </div> */}
 
       {/* Games Table */}
       <div className="card overflow-hidden">
