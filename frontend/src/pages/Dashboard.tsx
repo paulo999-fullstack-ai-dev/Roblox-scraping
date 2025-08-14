@@ -24,10 +24,10 @@ export default function Dashboard() {
     refetchInterval: 5000, // Refresh every 5 seconds
   })
 
-  const { data: trendingGames } = useQuery({
-    queryKey: ['trending-games'],
-    queryFn: () => analyticsApi.getTrending(5),
-  })
+  // const { data: trendingGames } = useQuery({
+  //   queryKey: ['trending-games'],
+  //   queryFn: () => analyticsApi.getTrending(5),
+  // })
 
   if (summaryLoading || statusLoading) {
     return (

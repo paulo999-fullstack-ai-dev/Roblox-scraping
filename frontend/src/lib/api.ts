@@ -216,10 +216,10 @@ export const analyticsApi = {
     return response.data
   },
 
-  getTrending: async (limit?: number) => {
-    const response = await api.get('/analytics/trending', { params: { limit } })
-    return response.data
-  },
+  // getTrending: async (limit?: number) => {
+  //   const response = await api.get('/analytics/trending', { params: { limit } })
+  //   return response.data
+  // },
 
   getGamesTable: async (params?: {
     skip?: number

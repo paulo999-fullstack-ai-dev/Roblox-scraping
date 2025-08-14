@@ -364,8 +364,8 @@ export default function Analytics() {
                       {game.active_players.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className={`font-medium ${game.growth_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {game.growth_percent >= 0 ? '+' : ''}{game.growth_percent.toFixed(1)}%
+                      <span className={`font-medium ${(game.growth_percent || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(game.growth_percent || 0) >= 0 ? '+' : ''}{Number(game.growth_percent || 0).toFixed(1)}%
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
