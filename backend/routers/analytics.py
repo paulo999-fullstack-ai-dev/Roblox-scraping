@@ -29,12 +29,11 @@ async def get_retention_analytics(
 @router.get("/growth", response_model=List[GrowthResponse])
 async def get_growth_analytics(
     window_days: int = Query(7, ge=1, le=30),
-    min_growth_percent: float = Query(10.0, ge=0.0),
     db: Session = Depends(get_db)
 ):
     """Get growth analytics for games - FAST VERSION"""
     from analytics_fast import get_fast_growth_data
-    return get_fast_growth_data(db, window_days, min_growth_percent)
+    return get_fast_growth_data(db, window_days)
 
 @router.get("/resonance/{game_id}", response_model=List[ResonanceResponse])
 async def get_resonance_analysis(
@@ -120,7 +119,7 @@ async def get_games_analytics_table(
             # Run the database query with a timeout
             result = await asyncio.wait_for(
                 asyncio.to_thread(get_fast_games_table_data, db, skip, limit, sort_by, sort_order),
-                timeout=10.0  # 10 second timeout
+                timeout=30.0  # 30 second timeout
             )
             return result
         except asyncio.TimeoutError:
