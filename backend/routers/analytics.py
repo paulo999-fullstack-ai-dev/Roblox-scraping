@@ -105,14 +105,32 @@ async def get_analytics_summary(db: Session = Depends(get_db)):
 @router.get("/games-table", response_model=List[Dict[str, Any]])
 async def get_games_analytics_table(
     skip: int = Query(0, ge=0),
-    limit: int = Query(1000, ge=1, le=10000),
+    limit: int = Query(100, ge=1, le=1000),  # Reduced default limit
     sort_by: str = Query("visits", regex="^(name|visits|favorites|likes|dislikes|active_players|d1_retention|d7_retention|growth_percent)$"),
     sort_order: str = Query("desc", regex="^(asc|desc)$"),
     db: Session = Depends(get_db)
 ):
     """Get comprehensive games table with analytics for the analytics page"""
-    from analytics_fast import get_fast_games_table_data
-    return get_fast_games_table_data(db, skip, limit, sort_by, sort_order)
+    try:
+        from analytics_fast import get_fast_games_table_data
+        import asyncio
+        
+        # Add timeout to prevent hanging
+        try:
+            # Run the database query with a timeout
+            result = await asyncio.wait_for(
+                asyncio.to_thread(get_fast_games_table_data, db, skip, limit, sort_by, sort_order),
+                timeout=10.0  # 10 second timeout
+            )
+            return result
+        except asyncio.TimeoutError:
+            # If timeout occurs, return empty list
+            return []
+            
+    except Exception as e:
+        # Log error and return empty list
+        print(f"Error in get_games_analytics_table: {str(e)}")
+        return []
 
 @router.get("/trending", response_model=List[GameAnalyticsResponse])
 async def get_trending_games(

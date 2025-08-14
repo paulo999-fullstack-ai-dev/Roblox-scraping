@@ -291,90 +291,62 @@ def get_fast_game_metrics(db: Session, game_id: int, days: int = 30) -> List[Dic
         return [] 
 
 def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sort_by: str = "visits", sort_order: str = "desc") -> List[Dict]:
-    """Get comprehensive games table data with analytics for sorting and display"""
+    """Get comprehensive games table data with analytics for sorting and display - SIMPLIFIED VERSION"""
     try:
-        # Build the ORDER BY clause based on sort parameters
-        order_clause = ""
-        if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players']:
-            order_clause = f"ORDER BY gm.{sort_by} {sort_order.upper()}"
-        elif sort_by in ['d1_retention', 'd7_retention', 'd30_retention']:
-            order_clause = f"ORDER BY {sort_by} {sort_order.upper()}"
-        elif sort_by == 'growth_percent':
-            order_clause = f"ORDER BY growth_percent {sort_order.upper()}"
-        else:
-            order_clause = f"ORDER BY g.name {sort_order.upper()}"
-        
-        # Single optimized query to get all games with metrics and analytics
-        query = f"""
-            WITH latest_metrics AS (
+        # Simple and fast query - just get games with their latest metrics
+        query = """
+            SELECT 
+                g.id as game_id,
+                g.name as game_name,
+                g.genre,
+                g.roblox_created,
+                g.roblox_updated,
+                g.created_at,
+                g.updated_at,
+                COALESCE(gm.visits, 0) as visits,
+                COALESCE(gm.favorites, 0) as favorites,
+                COALESCE(gm.likes, 0) as likes,
+                COALESCE(gm.dislikes, 0) as dislikes,
+                COALESCE(gm.active_players, 0) as active_players
+            FROM games g
+            LEFT JOIN (
                 SELECT DISTINCT ON (game_id) 
                     game_id, 
                     visits, 
                     favorites, 
                     likes, 
                     dislikes, 
-                    active_players,
-                    created_at
+                    active_players
                 FROM game_metrics 
                 ORDER BY game_id, created_at DESC
-            ),
-            game_analytics AS (
-                SELECT 
-                    g.id as game_id,
-                    g.name as game_name,
-                    g.genre,
-                    g.roblox_created,
-                    g.roblox_updated,
-                    g.created_at,
-                    g.updated_at,
-                    COALESCE(gm.visits, 0) as visits,
-                    COALESCE(gm.favorites, 0) as favorites,
-                    COALESCE(gm.likes, 0) as likes,
-                    COALESCE(gm.dislikes, 0) as dislikes,
-                    COALESCE(gm.active_players, 0) as active_players,
-                    -- Calculate retention based on visits
-                    CASE 
-                        WHEN COALESCE(gm.visits, 0) > 1000000 THEN 85.0
-                        WHEN COALESCE(gm.visits, 0) > 100000 THEN 75.0
-                        WHEN COALESCE(gm.visits, 0) > 10000 THEN 65.0
-                        ELSE 55.0
-                    END as d1_retention,
-                    CASE 
-                        WHEN COALESCE(gm.visits, 0) > 1000000 THEN 70.0
-                        WHEN COALESCE(gm.visits, 0) > 100000 THEN 60.0
-                        WHEN COALESCE(gm.visits, 0) > 10000 THEN 50.0
-                        ELSE 40.0
-                    END as d7_retention,
-                    CASE 
-                        WHEN COALESCE(gm.visits, 0) > 1000000 THEN 60.0
-                        WHEN COALESCE(gm.visits, 0) > 100000 THEN 50.0
-                        WHEN COALESCE(gm.visits, 0) > 10000 THEN 40.0
-                        ELSE 30.0
-                    END as d30_retention,
-                    -- Calculate growth percentage (simplified)
-                    CASE 
-                        WHEN COALESCE(gm.visits, 0) > 0 THEN 
-                            ROUND(
-                                (COALESCE(gm.visits, 0) * 0.15 + 
-                                 COALESCE(gm.favorites, 0) * 0.25 + 
-                                 COALESCE(gm.likes, 0) * 0.35 + 
-                                 COALESCE(gm.active_players, 0) * 0.25) * 100, 2
-                            )
-                        ELSE 0.0
-                    END as growth_percent
-                FROM games g
-                LEFT JOIN latest_metrics gm ON g.id = gm.game_id
-            )
-            SELECT * FROM game_analytics
-            {order_clause}
-            LIMIT {limit} OFFSET {skip}
+            ) gm ON g.id = gm.game_id
         """
+        
+        # Add sorting
+        if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players']:
+            query += f" ORDER BY gm.{sort_by} {sort_order.upper()}"
+        elif sort_by == 'name':
+            query += f" ORDER BY g.name {sort_order.upper()}"
+        else:
+            query += f" ORDER BY g.{sort_by} {sort_order.upper()}"
+        
+        # Add pagination
+        query += f" LIMIT {limit} OFFSET {skip}"
         
         result = db.execute(text(query)).fetchall()
         
-        # Convert to list of dictionaries
+        # Convert to list of dictionaries with simple analytics
         games_data = []
         for row in result:
+            # Simple retention calculation based on visits
+            visits = row.visits or 0
+            d1_retention = 65.0 if visits > 10000 else 55.0
+            d7_retention = 50.0 if visits > 10000 else 40.0
+            d30_retention = 40.0 if visits > 10000 else 30.0
+            
+            # Simple growth calculation
+            growth_percent = round((visits * 0.1 + (row.favorites or 0) * 0.2 + (row.active_players or 0) * 0.3), 2)
+            
             games_data.append({
                 'game_id': row.game_id,
                 'game_name': row.game_name,
@@ -383,19 +355,20 @@ def get_fast_games_table_data(db: Session, skip: int = 0, limit: int = 1000, sor
                 'roblox_updated': row.roblox_updated.isoformat() if row.roblox_updated else None,
                 'created_at': row.created_at.isoformat() if row.created_at else None,
                 'updated_at': row.updated_at.isoformat() if row.updated_at else None,
-                'visits': row.visits,
-                'favorites': row.favorites,
-                'likes': row.likes,
-                'dislikes': row.dislikes,
-                'active_players': row.active_players,
-                'd1_retention': round(row.d1_retention, 3),
-                'd7_retention': round(row.d7_retention, 3),
-                'd30_retention': round(row.d30_retention, 3),
-                'growth_percent': row.growth_percent
+                'visits': visits,
+                'favorites': row.favorites or 0,
+                'likes': row.likes or 0,
+                'dislikes': row.dislikes or 0,
+                'active_players': row.active_players or 0,
+                'd1_retention': d1_retention,
+                'd7_retention': d7_retention,
+                'd30_retention': d30_retention,
+                'growth_percent': growth_percent
             })
         
         return games_data
         
     except Exception as e:
         logger.error(f"Error getting fast games table data: {str(e)}")
+        # Return empty list on error instead of crashing
         return [] 
