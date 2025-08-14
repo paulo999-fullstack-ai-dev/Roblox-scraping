@@ -19,26 +19,44 @@ async def get_games(
     db: Session = Depends(get_db)
 ):
     """Get list of games with optional filtering and sorting"""
-    query = db.query(Game)
+    # Build query with proper joins for metric-based sorting
+    query = db.query(Game, GameMetric).join(
+        GameMetric, 
+        Game.id == GameMetric.game_id
+    ).filter(
+        GameMetric.created_at == db.query(func.max(GameMetric.created_at))
+        .filter(GameMetric.game_id == Game.id)
+        .scalar_subquery()
+    )
     
     if search and search.strip():
         query = query.filter(Game.name.ilike(f"%{search.strip()}%"))
     
-    # Add sorting
-    if sort_order == "desc":
-        query = query.order_by(desc(getattr(Game, sort_by)))
+    # Handle sorting for different field types
+    if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players']:
+        # Sort by metric values
+        if sort_order == "desc":
+            query = query.order_by(desc(getattr(GameMetric, sort_by)))
+        else:
+            query = query.order_by(getattr(GameMetric, sort_by))
+    elif sort_by in ['roblox_created', 'roblox_updated', 'created_at', 'updated_at']:
+        # Sort by game timestamp fields
+        if sort_order == "desc":
+            query = query.order_by(desc(getattr(Game, sort_by)))
+        else:
+            query = query.order_by(getattr(Game, sort_by))
     else:
-        query = query.order_by(getattr(Game, sort_by))
+        # Default sorting by name
+        if sort_order == "desc":
+            query = query.order_by(desc(Game.name))
+        else:
+            query = query.order_by(Game.name)
     
-    games = query.offset(skip).limit(limit).all()
+    results = query.offset(skip).limit(limit).all()
     
-    # Get latest metrics for each game
+    # Convert to response format
     result = []
-    for game in games:
-        latest_metric = db.query(GameMetric).filter(
-            GameMetric.game_id == game.id
-        ).order_by(desc(GameMetric.created_at)).first()
-        
+    for game, latest_metric in results:
         game_data = GameListResponse(
             id=game.id,
             roblox_id=game.roblox_id,

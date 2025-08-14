@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from database import get_db
 from models import Game, GameMetric, AnalyticsCache
 from schemas import (
@@ -98,17 +98,21 @@ async def get_game_analytics(
 
 @router.get("/summary", response_model=AnalyticsSummaryResponse)
 async def get_analytics_summary(db: Session = Depends(get_db)):
-    """Get overall analytics summary - FAST VERSION"""
+    """Get overall analytics summary"""
     from analytics_fast import get_fast_analytics_summary
-    result = get_fast_analytics_summary(db)
-    return AnalyticsSummaryResponse(
-        total_games=result['total_games'],
-        total_visits=result['total_visits'],
-        total_active_players=result['total_active_players'],
-        avg_d1_retention=result['avg_d1_retention'],
-        avg_growth_rate=result['avg_growth_rate'],
-        last_updated=result['last_updated']
-    )
+    return get_fast_analytics_summary(db)
+
+@router.get("/games-table", response_model=List[Dict[str, Any]])
+async def get_games_analytics_table(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=10000),
+    sort_by: str = Query("visits", regex="^(name|visits|favorites|likes|dislikes|active_players|d1_retention|d7_retention|growth_percent)$"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    db: Session = Depends(get_db)
+):
+    """Get comprehensive games table with analytics for the analytics page"""
+    from analytics_fast import get_fast_games_table_data
+    return get_fast_games_table_data(db, skip, limit, sort_by, sort_order)
 
 @router.get("/trending", response_model=List[GameAnalyticsResponse])
 async def get_trending_games(

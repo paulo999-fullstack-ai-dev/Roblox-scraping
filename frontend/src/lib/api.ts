@@ -101,6 +101,25 @@ export interface AnalyticsSummary {
   last_updated: string
 }
 
+export interface GameAnalyticsTableData {
+  game_id: number
+  game_name: string
+  genre?: string
+  roblox_created?: string
+  roblox_updated?: string
+  created_at?: string
+  updated_at?: string
+  visits: number
+  favorites: number
+  likes: number
+  dislikes: number
+  active_players: number
+  d1_retention: number
+  d7_retention: number
+  d30_retention: number
+  growth_percent: number
+}
+
 // API functions
 export const gamesApi = {
   getGames: async (params?: {
@@ -188,6 +207,16 @@ export const analyticsApi = {
 
   getTrending: async (limit?: number) => {
     const response = await api.get('/analytics/trending', { params: { limit } })
+    return response.data
+  },
+
+  getGamesTable: async (params?: {
+    skip?: number
+    limit?: number
+    sort_by?: string
+    sort_order?: string
+  }) => {
+    const response = await api.get<GameAnalyticsTableData[]>('/analytics/games-table', { params })
     return response.data
   },
 }
