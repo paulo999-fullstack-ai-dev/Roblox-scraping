@@ -19,63 +19,121 @@ async def get_games(
     db: Session = Depends(get_db)
 ):
     """Get list of games with optional filtering and sorting"""
-    # Build query with proper joins for metric-based sorting
-    query = db.query(Game, GameMetric).join(
-        GameMetric, 
-        Game.id == GameMetric.game_id
-    ).filter(
-        GameMetric.created_at == db.query(func.max(GameMetric.created_at))
-        .filter(GameMetric.game_id == Game.id)
-        .scalar_subquery()
-    )
-    
-    if search and search.strip():
-        query = query.filter(Game.name.ilike(f"%{search.strip()}%"))
-    
-    # Handle sorting for different field types
-    if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players']:
-        # Sort by metric values
-        if sort_order == "desc":
-            query = query.order_by(desc(getattr(GameMetric, sort_by)))
+    try:
+        # First get all games
+        games_query = db.query(Game)
+        
+        if search and search.strip():
+            games_query = games_query.filter(Game.name.ilike(f"%{search.strip()}%"))
+        
+        # Handle sorting for different field types
+        if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players']:
+            # For metric-based sorting, we need to join with the latest metrics
+            # Get the latest metric for each game
+            latest_metrics_subquery = db.query(
+                GameMetric.game_id,
+                func.max(GameMetric.created_at).label('max_created_at')
+            ).group_by(GameMetric.game_id).subquery()
+            
+            # Join games with their latest metrics
+            query = db.query(Game, GameMetric).join(
+                latest_metrics_subquery,
+                Game.id == latest_metrics_subquery.c.game_id
+            ).join(
+                GameMetric,
+                (GameMetric.game_id == Game.id) & 
+                (GameMetric.created_at == latest_metrics_subquery.c.max_created_at)
+            )
+            
+            # Apply search filter if provided
+            if search and search.strip():
+                query = query.filter(Game.name.ilike(f"%{search.strip()}%"))
+            
+            # Sort by metric values
+            if sort_order == "desc":
+                query = query.order_by(desc(getattr(GameMetric, sort_by)))
+            else:
+                query = query.order_by(getattr(GameMetric, sort_by))
+                
+        elif sort_by in ['roblox_created', 'roblox_updated', 'created_at', 'updated_at']:
+            # Sort by game timestamp fields
+            if sort_order == "desc":
+                games_query = games_query.order_by(desc(getattr(Game, sort_by)))
+            else:
+                games_query = games_query.order_by(getattr(Game, sort_by))
         else:
-            query = query.order_by(getattr(GameMetric, sort_by))
-    elif sort_by in ['roblox_created', 'roblox_updated', 'created_at', 'updated_at']:
-        # Sort by game timestamp fields
-        if sort_order == "desc":
-            query = query.order_by(desc(getattr(Game, sort_by)))
+            # Default sorting by name
+            if sort_order == "desc":
+                games_query = games_query.order_by(desc(Game.name))
+            else:
+                games_query = games_query.order_by(Game.name)
+        
+        # Execute the appropriate query
+        if sort_by in ['visits', 'favorites', 'likes', 'dislikes', 'active_players']:
+            results = query.offset(skip).limit(limit).all()
         else:
-            query = query.order_by(getattr(Game, sort_by))
-    else:
-        # Default sorting by name
-        if sort_order == "desc":
-            query = query.order_by(desc(Game.name))
-        else:
-            query = query.order_by(Game.name)
-    
-    results = query.offset(skip).limit(limit).all()
-    
-    # Convert to response format
-    result = []
-    for game, latest_metric in results:
-        game_data = GameListResponse(
-            id=game.id,
-            roblox_id=game.roblox_id,
-            name=game.name,
-            creator_name=game.creator_name,
-            genre=game.genre,
-            roblox_created=game.roblox_created,
-            roblox_updated=game.roblox_updated,
-            created_at=game.created_at,
-            updated_at=game.updated_at,
-            visits=latest_metric.visits if latest_metric else 0,
-            favorites=latest_metric.favorites if latest_metric else 0,
-            likes=latest_metric.likes if latest_metric else 0,
-            dislikes=latest_metric.dislikes if latest_metric else 0,
-            active_players=latest_metric.active_players if latest_metric else 0
-        )
-        result.append(game_data)
-    
-    return result
+            games = games_query.offset(skip).limit(limit).all()
+            # For non-metric sorting, we need to get the latest metrics separately
+            results = []
+            for game in games:
+                latest_metric = db.query(GameMetric).filter(
+                    GameMetric.game_id == game.id
+                ).order_by(desc(GameMetric.created_at)).first()
+                results.append((game, latest_metric))
+        
+        # Convert to response format
+        result = []
+        for game, latest_metric in results:
+            game_data = GameListResponse(
+                id=game.id,
+                roblox_id=game.roblox_id,
+                name=game.name,
+                creator_name=game.creator_name,
+                genre=game.genre,
+                roblox_created=game.roblox_created,
+                roblox_updated=game.roblox_updated,
+                created_at=game.created_at,
+                updated_at=game.updated_at,
+                visits=latest_metric.visits if latest_metric else 0,
+                favorites=latest_metric.favorites if latest_metric else 0,
+                likes=latest_metric.likes if latest_metric else 0,
+                dislikes=latest_metric.dislikes if latest_metric else 0,
+                active_players=latest_metric.active_players if latest_metric else 0
+            )
+            result.append(game_data)
+        
+        return result
+        
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error in get_games: {str(e)}")
+        # Fallback to simple query without sorting
+        games = db.query(Game).offset(skip).limit(limit).all()
+        result = []
+        for game in games:
+            latest_metric = db.query(GameMetric).filter(
+                GameMetric.game_id == game.id
+            ).order_by(desc(GameMetric.created_at)).first()
+            
+            game_data = GameListResponse(
+                id=game.id,
+                roblox_id=game.roblox_id,
+                name=game.name,
+                creator_name=game.creator_name,
+                genre=game.genre,
+                roblox_created=game.roblox_created,
+                roblox_updated=game.roblox_updated,
+                created_at=game.created_at,
+                updated_at=game.updated_at,
+                visits=latest_metric.visits if latest_metric else 0,
+                favorites=latest_metric.favorites if latest_metric else 0,
+                likes=latest_metric.likes if latest_metric else 0,
+                dislikes=latest_metric.dislikes if latest_metric else 0,
+                active_players=latest_metric.active_players if latest_metric else 0
+            )
+            result.append(game_data)
+        
+        return result
 
 @router.get("/{game_id}", response_model=GameResponse)
 async def get_game(game_id: int, db: Session = Depends(get_db)):
